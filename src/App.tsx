@@ -2,33 +2,22 @@ import { Button, Container, MenuItem, Paper, Stack, TextField } from '@mui/mater
 import { useState } from 'react';
 import Logo from '../src/assets/logo.png';
 import BackGroundAnimeted from './components/BackGroundAnimeted/html';
+import { casas } from './data/casas';
+import apiPostData from './services/apiPostData';
 
 function App() {
-  interface IValue {
-    value: string;
-    text: string;
-  }
-
-  const casas: IValue[] = [
-    {
-      value: '1',
-      text: '1',
-    },
-    {
-      value: '2',
-      text: '2',
-    },
-    {
-      value: '3',
-      text: '3',
-    },
-    {
-      value: '4',
-      text: '4',
-    },
-  ];
-
   const [value, setValue] = useState('');
+
+  async function postApi() {
+    try {
+      let payload = {
+        telefone: '',
+        ramal: '',
+      };
+      const response = await apiPostData.post('azcall/api/api.php', payload);
+      console.log(response);
+    } catch (error) {}
+  }
 
   function handleChange(e: any) {
     console.log(e.target.value);
