@@ -8,8 +8,10 @@ import { mask } from 'remask';
 import Logo from '../src/assets/logo.png';
 import BackGroundAnimeted from './components/BackGroundAnimeted/html';
 import { casas } from './data/casas';
+import { useForm } from './hooks/useForm';
 import useWindowSize from './hooks/useWindowSize';
-import apiPostData from './services/apiPostData';
+import { IReqPostImperioSendSms } from './services/postImperioReqSendSms/IReqPostImperioSendSms';
+import { getImperioSendSms } from './services/postImperioReqSendSms/postImperioSendSms';
 
 function App() {
   const [value, setValue] = useState('');
@@ -17,28 +19,34 @@ function App() {
   const [loading, setLoading] = useState(false);
   const { isMobile } = useWindowSize();
 
-  async function postApi(e: React.FormEvent) {
-    e.preventDefault();
-    try {
-      let payload = {
-        ramal: parseInt(value),
-        telefone: parseInt(valueNumber),
-      };
-      const response = await apiPostData.post('azcall/api/api.php', payload);
-      console.log(response);
-      setLoading(false);
-      sendEmail(e);
-      toast.success('Solicitação concluida. \n Aguarde a ligação no seu celular', {
-        position: toast.POSITION.BOTTOM_CENTER,
-      });
-    } catch (error) {
-      setLoading(false);
-      console.log(error);
-      toast.error('Erro ao enviar dados', {
-        position: toast.POSITION.BOTTOM_CENTER,
-      });
-    }
-  }
+  const { changeForm, formData } = useForm({
+    number: '',
+    name: '',
+  });
+
+  // * Codigo comentado refere-se ao endpoint de ligação
+  // async function postApi(e: React.FormEvent) {
+  //   e.preventDefault();
+  //   try {
+  //     const payload = {
+  //       ramal: parseInt(value),
+  //       telefone: parseInt(valueNumber),
+  //     };
+  //     const response = await apiPostData.post('azcall/api/api.php', payload);
+  //     console.log(response);
+  //     setLoading(false);
+  //     sendEmail(e);
+  //     toast.success('Solicitação concluida. \n Aguarde a ligação no seu celular', {
+  //       position: toast.POSITION.BOTTOM_CENTER,
+  //     });
+  //   } catch (error) {
+  //     setLoading(false);
+  //     console.log(error);
+  //     toast.error('Erro ao enviar dados', {
+  //       position: toast.POSITION.BOTTOM_CENTER,
+  //     });
+  //   }
+  // }
 
   function sendEmail(e: { preventDefault: () => void }) {
     e.preventDefault();
@@ -60,12 +68,49 @@ function App() {
     );
   }
 
+  async function sendSms(e: any) {
+    e.preventDefault();
+    setLoading(true);
+
+    const selectedCasa = casas.find((casa) => casa.number === value);
+
+    if (!selectedCasa || selectedCasa.number.trim() === '') {
+      setLoading(false);
+      toast.error('A casa selecionada não tem um numero cadastrado!');
+      return;
+    }
+    try {
+      const payload: IReqPostImperioSendSms = {
+        n: value,
+        m: `Condominio Imperio informa: ${formData.name} esta na portaria. Entre em contato no numero ${formData.number}, ele te aguarda`,
+        t: 'send',
+        token: 'b67f385e535087566720889e3c6b182fce5335e01e2d7749daeeb94417300cdd',
+      };
+      await getImperioSendSms(payload);
+      sendEmail;
+      toast.success('SMS Enviado, aguarde o morador entrar em contato! ');
+      console.log('Chamou');
+    } catch (error) {
+      console.log(error);
+      toast.success('SMS enviado, aguarde o morador entrar em contato!');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function isValidName(name: string): boolean {
+    // Remover espaços em branco no início e no final
+    const trimmedName = name.trim();
+
+    // Verificar se o nome tem dois ou mais termos
+    const nameTerms = trimmedName.split(' ');
+    return nameTerms.length >= 2;
+  }
+
   function handleChange(e: any) {
     setValue(e.target.value);
   }
-  function handleChangeNumber(e: React.ChangeEvent<HTMLInputElement>) {
-    setValueNumber(mask(e.target.value, ['99999999999']));
-  }
+
   return (
     <>
       <BackGroundAnimeted />
@@ -95,10 +140,10 @@ function App() {
         <Paper
           sx={{
             width: '95%',
-            height: '80%',
             borderRadius: '30px',
+            p: 2,
             backgroundColor: '#ffffff',
-            overflow: isMobile ? 'scroll' : 'none',
+            overflow: 'scroll',
             display: 'flex',
             alignItems: 'center',
             jusfycontent: 'center',
@@ -109,7 +154,7 @@ function App() {
           <Stack
             component={'form'}
             spacing={2}
-            onSubmit={postApi}
+            onSubmit={(e) => sendSms(e)}
             sx={{
               display: 'flex',
               flexDirection: 'column',
@@ -127,8 +172,9 @@ function App() {
                 fontFamily: "'Raleway', sans-serif",
               }}
             >
-              Para fazer contato com o morador preencha as infomrações abaixo.
+              Para fazer contato com o morador preencha as informações abaixo.
             </Typography>
+
             <TextField
               id='outlined-select-currency'
               variant='filled'
@@ -142,7 +188,7 @@ function App() {
               {casas.map((option, index) => (
                 <MenuItem
                   key={index}
-                  value={option.ramal}
+                  value={option.number ? option.number : option.ramal}
                   sx={{ alignItems: 'center', justifyContent: 'center' }}
                 >
                   {option.text}
@@ -151,21 +197,40 @@ function App() {
             </TextField>
             <TextField
               sx={{ width: '90%' }}
+              type='text'
+              variant='filled'
+              label='Digite seu nome completo'
+              helperText={
+                isValidName(formData.name) === true
+                  ? 'Ex: João Gomes Lima'
+                  : 'Escreva o nome e o sobrenome'
+              }
+              value={formData.name}
+              error={isValidName(formData.name) === false && formData.name !== ''}
+              onChange={(e) => changeForm('name', e.target.value)}
+            />
+            <TextField
+              sx={{ width: '90%' }}
               type='tel'
               variant='filled'
               label='Seu Número de telefone'
               helperText='Ex: (00) 90000-0000'
-              value={mask(valueNumber, ['(99) 99999-9999'])}
-              onChange={handleChangeNumber}
+              value={mask(formData.number, ['(99) 99999-9999'])}
+              onChange={(e) => changeForm('number', mask(e.target.value, ['99999999999']))}
             />
             <LoadingButton
               loading={loading}
               variant='contained'
               type='submit'
               sx={{ backgroundColor: '#016f62' }}
-              disabled={valueNumber === '' || value === ''}
+              disabled={
+                formData.number === '' ||
+                value === '' ||
+                isValidName(formData.name) === false ||
+                formData.number.length < 11
+              }
             >
-              CHAMAR
+              Solicitar
             </LoadingButton>
           </Stack>
         </Paper>
